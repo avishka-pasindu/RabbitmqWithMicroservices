@@ -2,6 +2,8 @@
 using Domain.Core.Commands;
 using Domain.Core.Events;
 using MediatR;
+using Newtonsoft.Json;
+using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +33,16 @@ namespace Infra.Bus
 
         public void Publish<T>(T @event) where T : Event
         {
-            throw new NotImplementedException();
+            var factory = new ConnectionFactory() { HostName = "localhost" };
+            using (var connection = factory.CreateConnection())
+            using (var chanel = connection.CreateModel())
+            {
+                var eventName = @event.GetType().Name;
+                chanel.QueueDeclare(eventName, false, false, false, null);
+                var message = JsonConvert.SerializeObject(@event);
+                var body = Encoding.UTF8.GetBytes(message);
+                chanel.BasicPublish("", eventName, null, body);
+            }
         }
 
         public void Subscribe<T, TH>()
